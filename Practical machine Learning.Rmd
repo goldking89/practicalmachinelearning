@@ -1,0 +1,114 @@
+---
+title: "Practical Machine Learning Final Project"
+author: "Jinwang Zou"
+date: "March 30, 2018"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project Description
+
+Using devices such as *Jawbone Up*, *Nike FuelBand*, and *Fitbit* is now possible to collect a large amount of data about personal activity relatively inexpensively. One perspective of analyzing these data is evaluating how *much* activities they do, rather than *how well they do it*. This project aims to predict the manner in which people do the exercise. The training data used in this study are available here <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv> and testing data here <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>.
+
+## Data
+### Data loading
+First, we will follow normal practice by splitting the data into 70/30 as training and testing data set. All strings like `NAs`, `#DIV/0!` and blank spaces are marked as missing data when reading in the data set.
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(knitr)
+```
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+              "weight-train.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+              "weight-test.csv")
+
+training <- read.csv("weight-train.csv",na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv("weight-test.csv",na.strings=c("NA","#DIV/0!",""))
+
+set.seed(12315)
+inTrain <- createDataPartition(training$classe, p=0.7, list=FALSE)
+mytraining <- training[inTrain, ]
+mytesting <- training[-inTrain, ]
+dim(mytraining);dim(mytesting)
+```
+
+To exclude missing data from final analysis, the following data cleaning steps are conducted:
+First, remove all Near Zero Variance variables as they do not have strong predictive power 
+```{r}
+
+NZV <- nearZeroVar(mytraining)
+mytraining <- mytraining[, -NZV]
+mytesting  <- mytesting[, -NZV]
+dim(mytraining);dim(mytesting)
+```
+Second, all columns with more than 90% `NAs` are excluded
+```{r}
+ANA <- sapply(mytraining,function(x) mean(is.na(x)))>0.90
+mytraining <- mytraining[,ANA==FALSE]
+mytesting <- mytesting[,ANA==FALSE]
+dim(mytraining);dim(mytesting)
+```
+Third, the first five columns contain identification information so they are also excluded
+```{r}
+# Remove the following identification columns
+mytraining <- mytraining[,-c(1:5)]
+mytesting <- mytesting[,-c(1:5)]
+dim(mytraining);dim(mytesting)
+```
+## Modeling
+For modeling part, two algorithms are used. The first is decision tree and the second is random forest. After comparing the predictive power of the two algorithms, the one with higher predictive ability will be used to do the final prediction.
+# Decision Tree
+```{r}
+set.seed(12345)
+modFit1 <- rpart(classe ~ ., data=mytraining, method="class")
+fancyRpartPlot(modFit1)
+
+prediction1 <- predict(modFit1,mytesting,type="class")
+mytree <- confusionMatrix(prediction1,mytesting$classe)
+mytree$overall
+```
+# Random Forest
+```{r}
+set.seed(12345)
+modFit2 <- randomForest(classe ~., data=mytraining)
+prediction2 <- predict(modFit2,mytesting,type="class")
+rf <- confusionMatrix(prediction2,mytesting$classe)
+rf$overall
+```
+Decision tree provides a 75.0% accuracy while random forest provides 99.5% accuracy. Thus random forest is used for final predictions and they are listed below:
+
+## Final Predictions
+```{r}
+prediction <- predict(modFit2, testing, type = "class")
+prediction
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
